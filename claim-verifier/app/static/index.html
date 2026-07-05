@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClaimShield AI - Insurance Claim Verification</title>
+    <!-- Inter Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="logo-icon">🛡️</div>
+                <div class="brand-text">
+                    <h1>ClaimShield AI</h1>
+                    <p>Vision-Based Claim Verification Engine</p>
+                </div>
+            </div>
+            <div class="system-status">
+                <span class="status-indicator online"></span>
+                <span>Active Model: <strong id="model-name">llava</strong></span>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="app-tabs">
+            <button class="tab-btn active" onclick="switchTab('single-verify')">Verify Single Claim</button>
+            <button class="tab-btn" onclick="switchTab('batch-verify')">Batch Verification</button>
+            <button class="tab-btn" onclick="switchTab('audit-history')">Audit History & Logs</button>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="app-main">
+            <!-- TAB 1: Single Claim Verification -->
+            <section id="tab-single-verify" class="tab-content active">
+                <div class="split-layout">
+                    <!-- Form Side -->
+                    <div class="card form-card">
+                        <h2>New Claim Assessment</h2>
+                        <p class="card-subtitle">Provide details and visual evidence for verification.</p>
+                        
+                        <form id="single-claim-form" onsubmit="submitSingleClaim(event)">
+                            <div class="form-group">
+                                <label for="user-id">User ID (Optional)</label>
+                                <input type="text" id="user-id" placeholder="e.g. user_001 (auto-generates if empty)">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="claim-object">Claim Object Type *</label>
+                                <select id="claim-object" required>
+                                    <option value="" disabled selected>Select object type</option>
+                                    <option value="car">🚗 Car / Vehicle</option>
+                                    <option value="laptop">💻 Laptop / Electronics</option>
+                                    <option value="package">📦 Package / Delivery Box</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="user-claim">Claim Conversation / Text *</label>
+                                <textarea id="user-claim" rows="6" required placeholder="Paste conversation history or claim details here...&#10;e.g. Customer: There is a dent on my front bumper."></textarea>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Evidence Images *</label>
+                                <div class="dropzone" id="dropzone" onclick="document.getElementById('image-upload').click()">
+                                    <div class="dropzone-content">
+                                        <span class="dropzone-icon">📸</span>
+                                        <p>Click or drag images here to upload</p>
+                                        <span class="file-limits">Supports JPG, PNG, WEBP</span>
+                                    </div>
+                                    <input type="file" id="image-upload" multiple accept="image/*" onchange="handleImageSelection(event)" style="display: none;">
+                                </div>
+                                <div class="image-preview-container" id="image-preview-grid"></div>
+                            </div>
+                            
+                            <button type="submit" id="submit-claim-btn" class="btn btn-primary">
+                                <span class="btn-text">Verify Claim</span>
+                                <div class="spinner" id="form-spinner"></div>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Verdict Side -->
+                    <div class="card verdict-card">
+                        <h2>Verification Verdict</h2>
+                        <p class="card-subtitle">AI visual assessment result will appear here.</p>
+                        
+                        <div id="verdict-placeholder" class="verdict-placeholder">
+                            <span class="placeholder-icon">🔎</span>
+                            <p>Fill out the form and submit to run AI claim verification.</p>
+                        </div>
+
+                        <div id="verdict-results" class="verdict-results" style="display: none;">
+                            <div class="verdict-header">
+                                <span id="verdict-status-badge" class="verdict-badge">SUPPORTED</span>
+                                <div class="verdict-id-info">
+                                    <span class="label">CLAIM ID</span>
+                                    <span id="verdict-id" class="value">#1024</span>
+                                </div>
+                            </div>
+
+                            <div class="results-grid">
+                                <div class="result-item">
+                                    <span class="result-label">Claim Object</span>
+                                    <span id="res-object" class="result-value">car</span>
+                                </div>
+                                <div class="result-item">
+                                    <span class="result-label">Detected Part</span>
+                                    <span id="res-part" class="result-value">front_bumper</span>
+                                </div>
+                                <div class="result-item">
+                                    <span class="result-label">Issue Type</span>
+                                    <span id="res-issue" class="result-value">dent</span>
+                                </div>
+                                <div class="result-item">
+                                    <span class="result-label">Severity</span>
+                                    <span id="res-severity" class="result-value">moderate</span>
+                                </div>
+                                <div class="result-item full-width">
+                                    <span class="result-label">Evidence Standard Met</span>
+                                    <span id="res-evidence-met" class="result-value">Yes</span>
+                                </div>
+                                <div class="result-item full-width">
+                                    <span class="result-label">Evidence Reason</span>
+                                    <p id="res-evidence-reason" class="result-text"></p>
+                                </div>
+                                <div class="result-item full-width">
+                                    <span class="result-label">Risk Flags</span>
+                                    <span id="res-risk-flags" class="result-value">none</span>
+                                </div>
+                            </div>
+
+                            <div class="justification-section">
+                                <h3>AI Justification</h3>
+                                <div class="quote-box">
+                                    <p id="res-justification"></p>
+                                </div>
+                            </div>
+
+                            <div class="supporting-images-section">
+                                <h3>Claim Images</h3>
+                                <div class="supporting-images-grid" id="res-images-grid"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: Batch Verification -->
+            <section id="tab-batch-verify" class="tab-content">
+                <div class="card max-width-card">
+                    <h2>Batch Process Claims</h2>
+                    <p class="card-subtitle">Run evaluation on a claims CSV file and download the output audit sheet.</p>
+                    
+                    <form id="batch-claim-form" onsubmit="submitBatchClaims(event)">
+                        <div class="form-group">
+                            <label for="csv-path">CSV File Path *</label>
+                            <input type="text" id="csv-path" required placeholder="e.g. claims/claims_demo.csv" value="claims/claims_demo.csv">
+                            <small class="form-help">Absolute or relative path to the claims CSV file on the server.</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="images-folder">Images Root Directory *</label>
+                            <input type="text" id="images-folder" required placeholder="e.g. ." value=".">
+                            <small class="form-help">Directory where image paths mentioned in the CSV are located.</small>
+                        </div>
+                        
+                        <button type="submit" id="run-batch-btn" class="btn btn-primary">
+                            <span class="btn-text">Run Batch Verification</span>
+                            <div class="spinner" id="batch-spinner"></div>
+                        </button>
+                    </form>
+
+                    <div id="batch-status-panel" class="status-panel" style="display: none;">
+                        <div class="status-message info">
+                            <span class="status-icon">⚙️</span>
+                            <div class="status-text">
+                                <h4>Processing Batch...</h4>
+                                <p>Running verification on all rows. This might take a moment if calling the AI model for multiple claims.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: Audit History & Logs -->
+            <section id="tab-audit-history" class="tab-content">
+                <div class="card max-width-card">
+                    <div class="table-header-container">
+                        <div>
+                            <h2>Claim Audit Log</h2>
+                            <p class="card-subtitle">Stored verification history. Click a row to see details.</p>
+                        </div>
+                        <button class="btn btn-secondary" onclick="loadAuditHistory()">🔄 Refresh History</button>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="filters-bar">
+                        <div class="filter-group">
+                            <label for="filter-status">Filter by Status</label>
+                            <select id="filter-status" onchange="applyFilters()">
+                                <option value="">All Statuses</option>
+                                <option value="SUPPORTED">SUPPORTED</option>
+                                <option value="CONTRADICTED">CONTRADICTED</option>
+                                <option value="INSUFFICIENT">INSUFFICIENT</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="filter-object">Filter by Object</label>
+                            <select id="filter-object" onchange="applyFilters()">
+                                <option value="">All Objects</option>
+                                <option value="car">Car</option>
+                                <option value="laptop">Laptop</option>
+                                <option value="package">Package</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- History Table -->
+                    <div class="table-responsive">
+                        <table class="history-table" id="audit-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>User ID</th>
+                                    <th>Object</th>
+                                    <th>Claim Description</th>
+                                    <th>Status</th>
+                                    <th>Issue Type</th>
+                                    <th>Object Part</th>
+                                    <th>Severity</th>
+                                    <th>Created At</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="audit-tbody">
+                                <tr>
+                                    <td colspan="10" class="text-center py-4">No audit logs available. Run verification to populate.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Claim Details Modal -->
+        <div id="details-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-btn" onclick="closeModal()">&times;</span>
+                <h2 id="modal-title">Claim Verdict Details</h2>
+                <div class="modal-body-scroll" id="modal-body">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script logic -->
+    <script>
+        const API_URL = ""; // Current host relative
+        let selectedFiles = [];
+
+        // Load active model on initialization
+        async function loadActiveModel() {
+            try {
+                const response = await fetch(`${API_URL}/model`);
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('model-name').innerText = data.model;
+                }
+            } catch (err) {
+                console.error("Failed to load active model:", err);
+            }
+        }
+        loadActiveModel();
+
+        // Tab Switching
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+
+            if (tabId === 'audit-history') {
+                loadAuditHistory();
+            }
+        }
+
+        // Image Selection Handler
+        function handleImageSelection(event) {
+            const files = Array.from(event.target.files);
+            selectedFiles = selectedFiles.concat(files);
+            renderPreviews();
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            renderPreviews();
+        }
+
+        function renderPreviews() {
+            const grid = document.getElementById('image-preview-grid');
+            grid.innerHTML = '';
+            
+            selectedFiles.forEach((file, index) => {
+                const reader = new FileReader();
+                const previewItem = document.createElement('div');
+                previewItem.className = 'preview-item';
+                
+                reader.onload = function(e) {
+                    previewItem.innerHTML = `
+                        <img src="${e.target.result}" alt="Preview">
+                        <button type="button" class="remove-img-btn" onclick="removeFile(${index})">&times;</button>
+                    `;
+                }
+                
+                reader.readAsDataURL(file);
+                grid.appendChild(previewItem);
+            });
+        }
+
+        // Submit Single Claim
+        async function submitSingleClaim(event) {
+            event.preventDefault();
+            
+            const btn = document.getElementById('submit-claim-btn');
+            const spinner = document.getElementById('form-spinner');
+            const placeholder = document.getElementById('verdict-placeholder');
+            const resultsDiv = document.getElementById('verdict-results');
+
+            btn.disabled = true;
+            spinner.style.display = 'block';
+
+            const formData = new FormData();
+            formData.append('claim_object', document.getElementById('claim-object').value);
+            formData.append('user_claim', document.getElementById('user-claim').value);
+            formData.append('user_id', document.getElementById('user-id').value);
+            
+            selectedFiles.forEach(file => {
+                formData.append('images', file);
+            });
+
+            try {
+                const response = await fetch(`${API_URL}/verify-claim`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(await response.text() || 'Failed to verify claim');
+                }
+
+                const data = await response.json();
+                renderVerdict(data);
+                
+                placeholder.style.display = 'none';
+                resultsDiv.style.display = 'block';
+                resultsDiv.scrollIntoView({ behavior: 'smooth' });
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+                spinner.style.display = 'none';
+            }
+        }
+
+        // Render Single Verdict Response
+        function renderVerdict(data) {
+            // Status badge color class
+            const badge = document.getElementById('verdict-status-badge');
+            badge.innerText = data.claim_status;
+            badge.className = 'verdict-badge'; // reset
+            if (data.claim_status === 'SUPPORTED') badge.classList.add('status-supported');
+            else if (data.claim_status === 'CONTRADICTED') badge.classList.add('status-contradicted');
+            else badge.classList.add('status-insufficient');
+
+            document.getElementById('verdict-id').innerText = `#${data.id || 'N/A'}`;
+            document.getElementById('res-object').innerText = data.claim_object;
+            document.getElementById('res-part').innerText = data.object_part;
+            document.getElementById('res-issue').innerText = data.issue_type;
+            document.getElementById('res-severity').innerText = data.severity;
+            document.getElementById('res-evidence-met').innerText = data.evidence_standard_met ? 'Yes' : 'No';
+            document.getElementById('res-evidence-reason').innerText = data.evidence_standard_met_reason || 'N/A';
+            document.getElementById('res-risk-flags').innerText = data.risk_flags || 'none';
+            document.getElementById('res-justification').innerText = data.claim_status_justification;
+
+            // Render Images thumbnails
+            const imgGrid = document.getElementById('res-images-grid');
+            imgGrid.innerHTML = '';
+            if (data.image_paths) {
+                const paths = data.image_paths.split(';');
+                paths.forEach(p => {
+                    if (p.trim()) {
+                        const img = document.createElement('img');
+                        // Route images standard endpoint
+                        img.src = `/${p.trim()}`;
+                        img.alt = 'Evidence';
+                        img.onclick = () => window.open(img.src, '_blank');
+                        imgGrid.appendChild(img);
+                    }
+                });
+            } else {
+                imgGrid.innerHTML = '<p class="text-muted">No images submitted.</p>';
+            }
+        }
+
+        // Submit Batch Verification
+        async function submitBatchClaims(event) {
+            event.preventDefault();
+            const btn = document.getElementById('run-batch-btn');
+            const spinner = document.getElementById('batch-spinner');
+            const statusPanel = document.getElementById('batch-status-panel');
+
+            btn.disabled = true;
+            spinner.style.display = 'block';
+            statusPanel.style.display = 'block';
+
+            const formData = new FormData();
+            formData.append('csv_path', document.getElementById('csv-path').value);
+            formData.append('images_folder', document.getElementById('images-folder').value);
+
+            try {
+                const response = await fetch(`${API_URL}/verify-batch`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(await response.text() || 'Batch processing failed');
+                }
+
+                // Download Results CSV
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'batch_results.csv';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                
+                statusPanel.innerHTML = `
+                    <div class="status-message success">
+                        <span class="status-icon">✅</span>
+                        <div class="status-text">
+                            <h4>Batch Completed Successfully!</h4>
+                            <p>Verdict CSV downloaded. Claims have been logged to the database.</p>
+                        </div>
+                    </div>
+                `;
+            } catch (err) {
+                statusPanel.innerHTML = `
+                    <div class="status-message error">
+                        <span class="status-icon">❌</span>
+                        <div class="status-text">
+                            <h4>Batch Failed</h4>
+                            <p>${err.message}</p>
+                        </div>
+                    </div>
+                `;
+            } finally {
+                btn.disabled = false;
+                spinner.style.display = 'none';
+            }
+        }
+
+        // Load History logs
+        let allClaimsHistory = [];
+        async function loadAuditHistory() {
+            try {
+                const response = await fetch(`${API_URL}/claims`);
+                if (!response.ok) throw new Error('Failed to fetch claims history');
+                allClaimsHistory = await response.json();
+                applyFilters();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function applyFilters() {
+            const statusFilter = document.getElementById('filter-status').value;
+            const objectFilter = document.getElementById('filter-object').value;
+            
+            const tbody = document.getElementById('audit-tbody');
+            tbody.innerHTML = '';
+
+            const filtered = allClaimsHistory.filter(claim => {
+                const matchesStatus = !statusFilter || claim.claim_status === statusFilter;
+                const matchesObject = !objectFilter || claim.claim_object === objectFilter;
+                return matchesStatus && matchesObject;
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="10" class="text-center py-4">No matching audit logs found.</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            filtered.forEach(claim => {
+                const row = document.createElement('tr');
+                row.className = 'clickable-row';
+                row.onclick = () => openDetails(claim.id);
+
+                const truncatedClaim = claim.user_claim.length > 60 
+                    ? claim.user_claim.substring(0, 60) + '...' 
+                    : claim.user_claim;
+
+                let badgeClass = 'table-badge';
+                if (claim.claim_status === 'SUPPORTED') badgeClass += ' badge-supported';
+                else if (claim.claim_status === 'CONTRADICTED') badgeClass += ' badge-contradicted';
+                else badgeClass += ' badge-insufficient';
+
+                row.innerHTML = `
+                    <td><strong>#${claim.id}</strong></td>
+                    <td>${claim.user_id}</td>
+                    <td><span class="object-type-text">${claim.claim_object}</span></td>
+                    <td class="text-claim">${escapeHtml(truncatedClaim)}</td>
+                    <td><span class="${badgeClass}">${claim.claim_status}</span></td>
+                    <td><code>${claim.issue_type}</code></td>
+                    <td><code>${claim.object_part}</code></td>
+                    <td><span class="severity-text severity-${claim.severity}">${claim.severity}</span></td>
+                    <td><small>${new Date(claim.created_at || Date.now()).toLocaleString()}</small></td>
+                    <td><button class="btn-view" onclick="event.stopPropagation(); openDetails(${claim.id})">Details</button></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Modal operations
+        async function openDetails(id) {
+            try {
+                const response = await fetch(`${API_URL}/claims/${id}`);
+                if (!response.ok) throw new Error('Failed to load claim detail');
+                const claim = await response.json();
+                
+                const modal = document.getElementById('details-modal');
+                const body = document.getElementById('modal-body');
+                
+                let badgeClass = 'verdict-badge';
+                if (claim.claim_status === 'SUPPORTED') badgeClass += ' status-supported';
+                else if (claim.claim_status === 'CONTRADICTED') badgeClass += ' status-contradicted';
+                else badgeClass += ' status-insufficient';
+
+                let imageHtml = '';
+                if (claim.image_paths) {
+                    const paths = claim.image_paths.split(';');
+                    paths.forEach(p => {
+                        if (p.trim()) {
+                            imageHtml += `<img src="/${p.trim()}" alt="Evidence" class="modal-thumbnail" onclick="window.open('/${p.trim()}', '_blank')">`;
+                        }
+                    });
+                } else {
+                    imageHtml = '<p class="text-muted">No images submitted.</p>';
+                }
+
+                body.innerHTML = `
+                    <div class="verdict-header">
+                        <span class="${badgeClass}">${claim.claim_status}</span>
+                        <div class="verdict-id-info">
+                            <span class="label">CLAIM ID</span>
+                            <span class="value">#${claim.id}</span>
+                        </div>
+                    </div>
+                    <div class="results-grid mt-4">
+                        <div class="result-item">
+                            <span class="result-label">User ID</span>
+                            <span class="result-value">${claim.user_id}</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="result-label">Claim Object</span>
+                            <span class="result-value">${claim.claim_object}</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="result-label">Detected Part</span>
+                            <span class="result-value">${claim.object_part}</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="result-label">Issue Type</span>
+                            <span class="result-value">${claim.issue_type}</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="result-label">Severity</span>
+                            <span class="result-value">${claim.severity}</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="result-label">Evidence Met?</span>
+                            <span class="result-value">${claim.evidence_standard_met ? 'Yes' : 'No'}</span>
+                        </div>
+                        <div class="result-item full-width">
+                            <span class="result-label">Evidence Standard Met Reason</span>
+                            <span class="result-text">${claim.evidence_standard_met_reason || 'N/A'}</span>
+                        </div>
+                        <div class="result-item full-width">
+                            <span class="result-label">User Claim Conversation</span>
+                            <div class="claim-text-block">${escapeHtml(claim.user_claim)}</div>
+                        </div>
+                        <div class="result-item full-width">
+                            <span class="result-label">Risk Flags</span>
+                            <span class="result-value">${claim.risk_flags || 'none'}</span>
+                        </div>
+                    </div>
+                    <div class="justification-section">
+                        <h3>AI Justification</h3>
+                        <div class="quote-box">
+                            <p>${claim.claim_status_justification}</p>
+                        </div>
+                    </div>
+                    <div class="supporting-images-section">
+                        <h3>Evidence Images</h3>
+                        <div class="supporting-images-grid">
+                            ${imageHtml}
+                        </div>
+                    </div>
+                `;
+
+                modal.style.display = 'block';
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('details-modal').style.display = 'none';
+        }
+
+        // Close on clicking outside modal
+        window.onclick = function(event) {
+            const modal = document.getElementById('details-modal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>

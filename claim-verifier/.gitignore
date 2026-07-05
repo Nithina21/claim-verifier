@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+output.csv
+*.log
+claims_audit.db
+images/uploads/
+output_batch.csv
+.pytest_cache/
