@@ -1,4 +1,4 @@
-# Claim Verifier
+# ClaimShield AI: Intelligent Mobile & Laptop Insurance Claims Assistant
 
 A locally running insurance claim verification engine (car / laptop / package) using **Ollama** and the **Llava** vision model. It processes claim text + image files locally, and writes back a structured verdict for each claim (SUPPORTED / CONTRADICTED / INSUFFICIENT).
 

@@ -18,7 +18,7 @@ if parent_dir not in sys.path:
 
 import verify_claims
 
-app = FastAPI(title="Insurance Claim Verification API (Local Ollama)")
+app = FastAPI(title="ClaimShield AI: Intelligent Mobile & Laptop Insurance Claims Assistant API")
 
 # Enable CORS for frontend flexibility
 app.add_middleware(
